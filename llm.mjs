@@ -12,7 +12,7 @@ const MODELS = (
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function askLLM(userPrompt, systemPrompt = "", retriesPerModel = 2) {
+export async function askLLM(userPrompt, systemPrompt = "", retriesPerModel = 2, options = {}) {
   if (!API_KEY) throw new Error("GEMINI_API_KEY nahi mili (.env check karo)");
 
   const body = {
@@ -22,6 +22,9 @@ export async function askLLM(userPrompt, systemPrompt = "", retriesPerModel = 2)
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
   }
 
+  if (options.json) {
+    body.generationConfig = { responseMimeType: "application/json" };
+  }
   let lastError = "Koi model try nahi hua";
 
   for (const model of MODELS) {
@@ -36,6 +39,7 @@ export async function askLLM(userPrompt, systemPrompt = "", retriesPerModel = 2)
         },
         body: JSON.stringify(body),
       });
+      
 
       const data = await res.json();
 
@@ -67,6 +71,19 @@ export async function askLLM(userPrompt, systemPrompt = "", retriesPerModel = 2)
       }
     }
   }
+  
 
   throw new Error(`Sab models fail ho gaye. Aakhri error: ${lastError}`);
+}
+
+export async function askJSON(userPrompt, systemPrompt = "") {
+  const text = await askLLM(userPrompt, systemPrompt, 2, { json: true });
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Kabhi kabhi AI ```json ... ``` laga deta hai, usay saaf karo
+    const cleaned = text.replace(/```json|```/g, "").trim();
+    return JSON.parse(cleaned);
+  }
 }
